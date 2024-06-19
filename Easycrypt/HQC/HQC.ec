@@ -15,62 +15,45 @@ require (*--*) BitWord Distr DInterval.
 (*---*) import RealOrder RField StdBigop.Bigint BIA.
 require (*--*) ROM  Matrix Ring Group ZModP PKE_CPA.
 
-type H.
+(** Construction: a Matrix **)
 type matrix.
 type vector.
 op [lossless] dv : vector distr.
 
-type pkey = vector.
-type skey = vector.
-type ptxt = vector.
-type ctxt = vector.
-
 clone import Matrix as Mt with
   type vector <- vector.
+  (* type matrix <- matrix.
+  theory Vector.
+  theory Matrix.*)
 
-module type Scheme = {
-  proc kg():pkey * pkey * skey * skey
-  proc enc(h:pkey, s:pkey,  m:ptxt)  : ctxt * ctxt
-  proc dec(x:skey, y:skey,  u:ctxt, v:ctxt) : ptxt option
-}.
+(** Construction: a PKE **)
+type pkey = vector * vector.
+type skey = vector * vector.
+type ptxt = vector.
+type ctxt = vector * vector.
 
-module type Adversary = {
-  proc choose(h:pkey, s:pkey) : ptxt * ptxt
-  proc guess(u:ctxt, v:ctxt) : bool
-}.
-
-module CPA (S:Scheme, A:Adversary) = {
-  proc main() : bool = {
-    var h, s : pkey;
-    var x, y : skey;
-    var m0, m1 : ptxt;
-    var u, v : ctxt;
-    var b, b' : bool;
-
-    (h,s,x,y) <@ S.kg();
-    (m0, m1)  <@ A.choose(h,s);
-    b         <$ {0,1};
-    (u,v)         <@ S.enc(h,s, b ? m1 : m0);
-    b'        <@ A.guess(u,v);
-    return (b' = b);
-  }
-}.
-
+clone import PKE_CPA as PKE with
+  type pkey <- pkey,
+  type skey <- skey,
+  type ptxt <- ptxt,
+  type ctxt <- ctxt.
 
 (** Concrete Construction: HQC_PKE **)
 module HQC_PKE : Scheme = {
-  proc kg(): pkey * pkey * skey * skey = {
-  var x,y,h,s;
+  proc kg(x y h s:vector):pkey *skey = {
+  var pk,sk;
 
     x  <$ dv;
     y  <$ dv;
     h  <$ dv;
-    s  <- x + h * y;
+    s  <- dv; (* x + h * y;*)
+    pk <- (h, s);
+    sk <- (x, y);
 
-    return (h, s, x, y);
+    return (pk,sk);
   }
 
-    proc enc(h:pkey, s:pkey, m:ptxt):ctxt * ctxt = {
+    proc enc(pk:pkey, m:ptxt):ctxt = {
       var e,r1,r2,u,v;
       var g : matrix;
 
