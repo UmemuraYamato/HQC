@@ -10,21 +10,36 @@ clone import Ring.ComRing as ZR.
 (* -------------------------------------------------------------------- *)
 clone import Bigalg.BigComRing as Big with theory CR <- ZR.
 
+type R = t.
+
+import BAdd.
+
+(* -------------------------------------------------------------------- *)
+op size : { int | 0 <= size } as ge0_size.
+
+hint exact : ge0_size.
+
 require import AllCore FSet List SmtMap CHoareTactic StdOrder.
 require (*--*) BitWord Distr DInterval.
 (*---*) import RealOrder RField StdBigop.Bigint BIA.
 require (*--*) ROM  Matrix Ring Group ZModP PKE_CPA.
 
-(** Construction: a Matrix **)
-type matrix.
-type vector.
-op [lossless] dv : vector distr.
+clone Matrix as Mt.
+import Mt Mt.Vector Mt.Matrix.
 
-clone import Matrix as Mt with
-  type vector <- vector.
-  (* type matrix <- matrix.
-  theory Vector.
-  theory Matrix.*)
+(** Construction: a Matrix **)
+type vector = Mt.vector.
+type matrix = Mt.Matrix.matrix.
+
+op dvector = Mt.Matrix.dvector.
+
+op [lossless uniform full] duni_R : R distr.
+op [lossless] dshort_R : R distr.
+op duni = dvector duni_R.
+op dshort = dvector dshort_R.
+
+op H:vector -> matrix.
+
 
 (** Construction: a PKE **)
 type pkey = vector * vector.
@@ -40,34 +55,41 @@ clone import PKE_CPA as PKE with
 
 (** Concrete Construction: HQC_PKE **)
 module HQC_PKE : Scheme = {
-  proc kg(x y h s:vector):pkey *skey = {
-  var pk,sk;
+  proc kg():pkey *skey = {
+  var x,y,h,h',s,pk,sk;
 
-    x  <$ dv;
-    y  <$ dv;
-    h  <$ dv;
-    s  <- dv; (* x + h * y;*)
+    x  <$ dshort;           (* ZModP p=2 -> F_2 *)
+    y  <$ dshort;
+    h  <$ dshort;
+    h' <- (H h);            (* h -> H making for QC *)
+    s <- x + h' *^ y;
     pk <- (h, s);
     sk <- (x, y);
 
     return (pk,sk);
   }
 
-    proc enc(pk:pkey, m:ptxt):ctxt = {
-      var e,r1,r2,u,v;
+  proc enc(pk:pkey, m:ptxt):ctxt = {
+      var e,r1,r2,u,v,h,s;
       var g : matrix;
 
-    e <$ dseed;
-    r1 <$ dseed;
-    r2 <$ dseed;
+    (h, s) <- pk;
+    e  <$ duni;
+    r1 <$ duni;
+    r2 <$ duni;
 
     u <- r1 + h * r2;
     v <- m + s* r2 + e;
 
-    return (u, v);
+    c <- (u, v);
+
+    return c;
   }
 
-  proc dec(x:skey, y:skey, u:ctxt, v:ctxt):ptxt option = {
+  proc dec(sk:skey, c:ctxt):ptxt option = {
+      var u,v,x,y;
+    (u, v) <- c;
+    (x, y) <- sk;
 
     return Some (v - u * y);
 
