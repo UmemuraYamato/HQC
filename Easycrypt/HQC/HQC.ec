@@ -101,9 +101,11 @@ module HQC_PKE : Scheme = {
   }
 }.
 
-(** Reduction: from a PKE adversary, construct a Syndrome adversary
+
+
+(** Reduction: from a PKE adversary, construct a Syndrome adversary **)
 module SyndromeAdv (A:Adversary) = {
-  proc guess (h, s, ) : bool = {
+  proc guess (pk:pkey, c:ctxt) : bool = {
     var m0, m1, b, b';
 
     (m0, m1) <@ A.choose(pk);
@@ -111,7 +113,7 @@ module SyndromeAdv (A:Adversary) = {
     b'       <@ A.guess(c);
     return b' = b;
   }
-}. **)
+}. 
 
 (** We now prove that, for all adversary A, we have:
       `| Pr[CPA(ElGamal,A).main() @ &m : res] - 1%r/2%r |
@@ -124,8 +126,24 @@ section Security.
 
   local module G1 = {
     proc main () : bool = {
-      var x, y, h, h', s, pk, sk, c, m0, m1, b, b';
+    (**var x, y, h, h', s, sk, m0, m1, b, b'; **)
+    var pk: pkey;
+    var sk: skey;
+    var c: ctxt;
+    var m0, m1: ptxt;
+    var b: bool;
 
+        (pk, sk) <@ HQC_PKE.kg();
+        (m0, m1) <@ A.choose(pk);
+          c <@ HQC_PKE.enc(pk, m0);
+          b <@ A.guess(c);
+          return b;
+      }
+    }.
+  
+        
+        
+(**
       x       <$ dshort;
       y       <$ dshort;
       h       <$ dshort;
@@ -143,17 +161,17 @@ section Security.
       v       <- m0 ^* g + s' *^ r2 + e;
       c       <- (u, v);
       b       <@ A.guess(pk, c);
-
       return b;
     }
   }.
+**)
 
 
 (**Lemma 4**)
-  local lemma ddh1_gb &m:
+local lemma ddh1_gb &m:
 
-      proof.
-      byequiv=> //; proc; inline *.
+proof.
+   byequiv=> //; proc; inline *.
   swap{1} 3 2; swap{1} [5..6] 2; swap{2} 6 -2.
   auto; call (_:true); wp.
  rnd (fun z, z + loge (if b then m1 else m0){2})
