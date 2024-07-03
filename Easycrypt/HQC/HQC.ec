@@ -39,6 +39,8 @@ op duni = dvector duni_R.
 op dshort = dvector dshort_R.
 
 op H:vector -> matrix.
+(*op ( * ) (v1 : vector) (v2 : vector) : vector =
+  offunv (fun i => bigi predT (fun i => v1.[i] * v2.[i]) 0 size).*)
 
 
 (** Construction: a PKE **)
@@ -61,7 +63,7 @@ module HQC_PKE : Scheme = {
     x  <$ dshort;           (* ZModP p=2 -> F_2 *)
     y  <$ dshort;
     h  <$ dshort;
-    h' <- (H h);            (* h -> H making for QC *)
+    h' <- (H h);               (* h -> H making for QC *)
     s <- x + h' *^ y;
     pk <- (h, s);
     sk <- (x, y);
@@ -70,16 +72,18 @@ module HQC_PKE : Scheme = {
   }
 
   proc enc(pk:pkey, m:ptxt):ctxt = {
-      var e,r1,r2,u,v,h,s;
+      var e,r1,r2,u,v,h,s,h',s',c;
       var g : matrix;
 
     (h, s) <- pk;
     e  <$ duni;
     r1 <$ duni;
     r2 <$ duni;
+    h' <- (H h);
+    s' <- (H s);
 
-    u <- r1 + h * r2;
-    v <- m + s* r2 + e;
+    u <- r1 + h' *^ r2;
+    v <- m ^* g + s' *^ r2 + e;
 
     c <- (u, v);
 
@@ -87,26 +91,27 @@ module HQC_PKE : Scheme = {
   }
 
   proc dec(sk:skey, c:ctxt):ptxt option = {
-      var u,v,x,y;
+      var u,v,x,y,u';
     (u, v) <- c;
     (x, y) <- sk;
+     u' <- (H u);
 
-    return Some (v - u * y);
+    return Some (v + ((-u' *^ y)));
 
   }
 }.
 
-(** Reduction: from a PKE adversary, construct a DDH adversary *)
-module DDHAdv (A:Adversary) = {
-  proc guess (gx, gy, gz) : bool = {
+(** Reduction: from a PKE adversary, construct a Syndrome adversary
+module SyndromeAdv (A:Adversary) = {
+  proc guess (h, s, ) : bool = {
     var m0, m1, b, b';
 
-    (m0, m1) <@ A.choose(gx);
+    (m0, m1) <@ A.choose(pk);
     b        <$ {0,1};
-    b'       <@ A.guess(gy, gz * (b?m1:m0));
+    b'       <@ A.guess(c);
     return b' = b;
   }
-}.
+}. **)
 
 (** We now prove that, for all adversary A, we have:
       `| Pr[CPA(ElGamal,A).main() @ &m : res] - 1%r/2%r |
@@ -117,33 +122,31 @@ section Security.
   declare axiom Ac_ll: islossless A.choose.
   declare axiom Ag_ll: islossless A.guess.
 
-(**Lemma 2**)
-  local lemma cpa_ddh0 &m:
-      Pr[CPA(ElGamal,A).main() @ &m : res] =
-      Pr[DDH0(DDHAdv(A)).main() @ &m : res].
-  proof.
-  byequiv=> //; proc; inline *.
-  swap{1} 7 -5.
-  auto; call (_:true).
-  auto; call (_:true).
-  by auto=> /> sk _ y _ r b _; rewrite expM.
-  qed.
-
-  local module Gb = {
+  local module G1 = {
     proc main () : bool = {
-      var x, y, z, m0, m1, b, b';
+      var x, y, h, h', s, pk, sk, c, m0, m1, b, b';
 
-      x       <$ dt;
-      y       <$ dt;
-      (m0,m1) <@ A.choose(g ^ x);
-      z       <$ dt;
-      b'      <@ A.guess(g ^ y, g ^ z);
-      b       <$ {0,1};
-      return b' = b;
+      x       <$ dshort;
+      y       <$ dshort;
+      h       <$ dshort;
+      h'      <- (H h);
+      s       <- x + h' *^ y;
+      pk      <- (h, s);
+      (m0,m1) <@ A.choose(pk);
+
+      e       <$ duni;
+      r1      <$ duni;
+      r2      <$ duni;
+      h'      <- (H h);
+      s'      <- (H s);
+      u       <- r1 + h' *^ r2;
+      v       <- m0 ^* g + s' *^ r2 + e;
+      c       <- (u, v);
+      b       <@ A.guess(pk, c);
+
+      return b;
     }
   }.
-
-  local lemma ddh0_ddh1 &m:
 
 
 (**Lemma 4**)
