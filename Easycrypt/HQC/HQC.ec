@@ -101,17 +101,23 @@ module HQC_PKE : Scheme = {
   }
 }.
 
-(** Reduction: from a PKE adversary, construct a Syndrome adversary
+
+module type Adversary = {
+  proc choose(pk:pkey) : ptxt * ptxt
+  proc guess(pk:pkey, c:ctxt)   : bool
+}.
+
+(** Reduction: from a PKE adversary, construct a Syndrome adversary **)
 module SyndromeAdv (A:Adversary) = {
-  proc guess (h, s, ) : bool = {
+  proc guess (pk:pkey, c:ctxt) : bool = {
     var m0, m1, b, b';
 
     (m0, m1) <@ A.choose(pk);
     b        <$ {0,1};
-    b'       <@ A.guess(c);
+    b'       <@ A.guess(pk, c);
     return b' = b;
   }
-}. **)
+}.
 
 (** We now prove that, for all adversary A, we have:
       `| Pr[CPA(ElGamal,A).main() @ &m : res] - 1%r/2%r |
@@ -122,38 +128,62 @@ section Security.
   declare axiom Ac_ll: islossless A.choose.
   declare axiom Ag_ll: islossless A.guess.
 
-  local module G1 = {
+  local module G1(A:Adversary) = {
     proc main () : bool = {
-      var x, y, h, h', s, pk, sk, c, m0, m1, b, b';
+    var pk: pkey;
+    var sk: skey;
+    var c: ctxt;
+    var m0, m1: ptxt;
+    var b: bool;
 
-      x       <$ dshort;
-      y       <$ dshort;
-      h       <$ dshort;
-      h'      <- (H h);
-      s       <- x + h' *^ y;
-      pk      <- (h, s);
-      (m0,m1) <@ A.choose(pk);
+        (pk, sk) <@ HQC_PKE.kg();
+        (m0, m1) <@ A.choose(pk);
+        c        <@ HQC_PKE.enc(pk, m0);
+        b        <@ A.guess(pk, c);
+        return b;
 
-      e       <$ duni;
-      r1      <$ duni;
-      r2      <$ duni;
-      h'      <- (H h);
-      s'      <- (H s);
-      u       <- r1 + h' *^ r2;
-      v       <- m0 ^* g + s' *^ r2 + e;
-      c       <- (u, v);
-      b       <@ A.guess(pk, c);
-
-      return b;
     }
   }.
 
 
-(**Lemma 4**)
-  local lemma ddh1_gb &m:
+  local module G2(A:Adversary) = {
+    proc main () : bool = {
+     var pk: pkey;
+     var sk: skey;
+     var c: ctxt;
+     var m0, m1: ptxt;
+     var b: bool;
+     var h, s;
 
-      proof.
-      byequiv=> //; proc; inline *.
+        (pk, sk) <@ HQC_PKE.kg();
+        s        <$ duni;
+        pk       <- (h, s);
+        sk       <- (zerov, zerov);
+        (m0, m1) <@ A.choose(pk);
+        c        <@ HQC_PKE.enc(pk, m0);
+        b        <@ A.guess(pk, c);
+        return b;
+    }
+  }.
+
+
+(**  Lemma  1  **)
+ local lemma lem_G1_G2(A<:Adversary) &m:
+     Pr[G1(A).main() @ &m : res] = Pr[G2(A).main() @ &m : res].
+
+proof.
+byequiv=> //. proc.
+  call (_:true).
+  inline*.
+  auto.
+  call (_:true).
+  auto.
+  progress.
+  rewrite Matrix.dvector_ll.
+
+
+
+
   swap{1} 3 2; swap{1} [5..6] 2; swap{2} 6 -2.
   auto; call (_:true); wp.
  rnd (fun z, z + loge (if b then m1 else m0){2})
