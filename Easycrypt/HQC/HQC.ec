@@ -156,6 +156,7 @@ section Security.
      var h, s;
 
         (pk, sk) <@ HQC_PKE.kg();
+        (h, s)   <- pk;
         s        <$ duni;
         pk       <- (h, s);
         sk       <- (zerov, zerov);
@@ -172,17 +173,14 @@ section Security.
      Pr[G1(A).main() @ &m : res] = Pr[G2(A).main() @ &m : res].
 
 proof.
-byequiv=> //. proc.
+  byequiv=> //. proc.
   call (_:true).
-  inline*.
-  auto.
   call (_:true).
   auto.
   progress.
-  rewrite Matrix.dvector_ll.
+  by auto => /#.
 
-
-
+qed.
 
   swap{1} 3 2; swap{1} [5..6] 2; swap{2} 6 -2.
   auto; call (_:true); wp.
