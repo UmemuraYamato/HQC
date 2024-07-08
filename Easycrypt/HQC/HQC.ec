@@ -60,7 +60,7 @@ module HQC_PKE : Scheme = {
   proc kg():pkey *skey = {
   var x,y,h,h',s,pk,sk;
 
-    x  <$ dshort;           (* ZModP p=2 -> F_2 *)
+    x  <$ dshort;              (* ZModP p=2 -> F_2 *)
     y  <$ dshort;
     h  <$ dshort;
     h' <- (H h);               (* h -> H making for QC *)
@@ -101,17 +101,13 @@ module HQC_PKE : Scheme = {
   }
 }.
 
-
-<<<<<<< HEAD
 module type Adversary = {
   proc choose(pk:pkey) : ptxt * ptxt
-  proc guess(pk:pkey, c:ctxt)   : bool
+  proc guess(pk:pkey, c:ctxt) : bool
 }.
-=======
->>>>>>> 84d27b4165907b30578066813e798cbdf9d298ef
 
 (** Reduction: from a PKE adversary, construct a Syndrome adversary **)
-module SyndromeAdv (A:Adversary) = {
+module DQCSD_Adv (A:Adversary) = {
   proc guess (pk:pkey, c:ctxt) : bool = {
     var m0, m1, b, b';
 
@@ -120,11 +116,7 @@ module SyndromeAdv (A:Adversary) = {
     b'       <@ A.guess(pk, c);
     return b' = b;
   }
-<<<<<<< HEAD
 }.
-=======
-}. 
->>>>>>> 84d27b4165907b30578066813e798cbdf9d298ef
 
 (** We now prove that, for all adversary A, we have:
       `| Pr[CPA(ElGamal,A).main() @ &m : res] - 1%r/2%r |
@@ -155,7 +147,6 @@ section Security.
 
   local module G2(A:Adversary) = {
     proc main () : bool = {
-<<<<<<< HEAD
      var pk: pkey;
      var sk: skey;
      var c: ctxt;
@@ -172,167 +163,18 @@ section Security.
         c        <@ HQC_PKE.enc(pk, m0);
         b        <@ A.guess(pk, c);
         return b;
-=======
-    (**var x, y, h, h', s, sk, m0, m1, b, b'; **)
-    var pk: pkey;
-    var sk: skey;
-    var c: ctxt;
-    var m0, m1: ptxt;
-    var b: bool;
-
-        (pk, sk) <@ HQC_PKE.kg();
-        (m0, m1) <@ A.choose(pk);
-          c <@ HQC_PKE.enc(pk, m0);
-          b <@ A.guess(c);
-          return b;
-      }
-    }.
-  
-        
-        
-(**
-      x       <$ dshort;
-      y       <$ dshort;
-      h       <$ dshort;
-      h'      <- (H h);
-      s       <- x + h' *^ y;
-      pk      <- (h, s);
-      (m0,m1) <@ A.choose(pk);
-
-      e       <$ duni;
-      r1      <$ duni;
-      r2      <$ duni;
-      h'      <- (H h);
-      s'      <- (H s);
-      u       <- r1 + h' *^ r2;
-      v       <- m0 ^* g + s' *^ r2 + e;
-      c       <- (u, v);
-      b       <@ A.guess(pk, c);
-      return b;
->>>>>>> 84d27b4165907b30578066813e798cbdf9d298ef
     }
   }.
-**)
 
 
-<<<<<<< HEAD
 (**  Lemma  1  **)
  local lemma lem_G1_G2(A<:Adversary) &m:
      Pr[G1(A).main() @ &m : res] = Pr[G2(A).main() @ &m : res].
 
 proof.
-  byequiv=> //. proc.
+byequiv=> //. proc.
   call (_:true).
   call (_:true).
   auto.
   progress.
-  by auto => /#.
-
-qed.
-
-=======
-(**Lemma 4**)
-local lemma ddh1_gb &m:
-
-proof.
-   byequiv=> //; proc; inline *.
->>>>>>> 84d27b4165907b30578066813e798cbdf9d298ef
-  swap{1} 3 2; swap{1} [5..6] 2; swap{2} 6 -2.
-  auto; call (_:true); wp.
- rnd (fun z, z + loge (if b then m1 else m0){2})
-      (fun z, z - loge (if b then m1 else m0){2}).
- auto; call (_:true).
-  auto; progress.
-  - by rewrite ZPF.addrAC -ZPF.addrA ZPF.subrr ZPF.addr0.
-  - by rewrite  -ZPF.addrA ZPF.subrr ZPF.addr0.
-  - by rewrite expD expgK.
-  qed.
-
-  module G1(A:Adversary) = {
-    proc main () : bool = {
-    var x, y, z, m0, m1, b, b',gx,gy,gz,c;
-
-      x       <$ dt;
-      y       <$ dt;
-      gx      <- g^x;
-      gy      <- g^y;
-     (m0,m1) <@ A.choose(g ^ x);
-      b       <$ {0,1};
-      z       <$ dt;
-      gz      <- g^z;
-      c <- (gy, gz * (b?m1:m0)) ;
-      b'      <@ A.guess(c);
-      return b' = b;
-    }
-  }.
-
-   module G2(A:Adversary) = {
-    proc main () : bool = {
-      var x, y, z, m0, m1, b, b',gx,gy,gz,c;
-
-      x       <$ dt;
-      y       <$ dt;
-      gx      <- g^x;
-      gy      <- g^y;
-      (m0,m1) <@ A.choose(g ^ x);
-      z       <$ dt;
-      gz      <- g^z;
-      c <-      (gy,gz) ;
-      b'      <@ A.guess(c);
-      b       <$ {0,1};
-      return b' = b;
-    }
-  }.
-
-(**Lemma 5**)
- local lemma lem_G1_G2(A<:Adversary) &m:
-     Pr[G1(A).main() @ &m : res] = Pr[G2(A).main() @ &m : res].
-
-proof.
- byequiv => //.
- proc.
- swap{2} 10 -4.
- call ( _:true ).
-  wp.
-  rnd
-      (fun z, z + loge (if b then m1 else m0){2})
-      (fun z, z - loge (if b then m1 else m0){2}).
- rnd.
- call (_:true).
- wp.
- rnd.
- rnd.
- skip .
- progress.
-  - by rewrite ZPF.addrAC -ZPF.addrA ZPF.subrr ZPF.addr0.
-  - by rewrite  -ZPF.addrA ZPF.subrr ZPF.addr0.
-  - by rewrite expD expgK.
-qed.`
-
-
-local lemma lema_G1_DDH1(A<:Adversary) &m:
-     Pr[G1(A).main() @ &m : res] = Pr[DDH1(DDHAdv(A)).main() @ &m : res].
-
-proof.
- byequiv=> //.
- proc.
-
-  local lemma Gb_half &m:
-     Pr[Gb.main()@ &m : res] = 1%r/2%r.
-  proof.
- byphoare=> //; proc.
-  rnd  (pred1 b')=> //=.
-  conseq (: _ ==> true).
-    + by move=> /> b; rewrite dbool1E pred1E.
-    islossless;[ apply Ag_ll | apply Ac_ll].
-qed.
-
-  lemma conclusion &m :
-    `| Pr[CPA(ElGamal,A).main() @ &m : res] - 1%r/2%r | =
-    `| Pr[DDH0(DDHAdv(A)).main() @ &m : res] -
-         Pr[DDH1(DDHAdv(A)).main() @ &m : res] |.
-proof.
-  by rewrite (cpa_ddh0 &m) (ddh1_gb &m) (Gb_half &m).
-  qed.
-end section Security.
-print conclusion.
+  -by g{1}=g{2}.
