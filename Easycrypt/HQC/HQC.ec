@@ -102,6 +102,13 @@ module HQC_PKE : Scheme = {
 }.
 
 
+<<<<<<< HEAD
+module type Adversary = {
+  proc choose(pk:pkey) : ptxt * ptxt
+  proc guess(pk:pkey, c:ctxt)   : bool
+}.
+=======
+>>>>>>> 84d27b4165907b30578066813e798cbdf9d298ef
 
 (** Reduction: from a PKE adversary, construct a Syndrome adversary **)
 module SyndromeAdv (A:Adversary) = {
@@ -110,10 +117,14 @@ module SyndromeAdv (A:Adversary) = {
 
     (m0, m1) <@ A.choose(pk);
     b        <$ {0,1};
-    b'       <@ A.guess(c);
+    b'       <@ A.guess(pk, c);
     return b' = b;
   }
+<<<<<<< HEAD
+}.
+=======
 }. 
+>>>>>>> 84d27b4165907b30578066813e798cbdf9d298ef
 
 (** We now prove that, for all adversary A, we have:
       `| Pr[CPA(ElGamal,A).main() @ &m : res] - 1%r/2%r |
@@ -124,8 +135,44 @@ section Security.
   declare axiom Ac_ll: islossless A.choose.
   declare axiom Ag_ll: islossless A.guess.
 
-  local module G1 = {
+  local module G1(A:Adversary) = {
     proc main () : bool = {
+    var pk: pkey;
+    var sk: skey;
+    var c: ctxt;
+    var m0, m1: ptxt;
+    var b: bool;
+
+        (pk, sk) <@ HQC_PKE.kg();
+        (m0, m1) <@ A.choose(pk);
+        c        <@ HQC_PKE.enc(pk, m0);
+        b        <@ A.guess(pk, c);
+        return b;
+
+    }
+  }.
+
+
+  local module G2(A:Adversary) = {
+    proc main () : bool = {
+<<<<<<< HEAD
+     var pk: pkey;
+     var sk: skey;
+     var c: ctxt;
+     var m0, m1: ptxt;
+     var b: bool;
+     var h, s;
+
+        (pk, sk) <@ HQC_PKE.kg();
+        (h, s)   <- pk;
+        s        <$ duni;
+        pk       <- (h, s);
+        sk       <- (zerov, zerov);
+        (m0, m1) <@ A.choose(pk);
+        c        <@ HQC_PKE.enc(pk, m0);
+        b        <@ A.guess(pk, c);
+        return b;
+=======
     (**var x, y, h, h', s, sk, m0, m1, b, b'; **)
     var pk: pkey;
     var sk: skey;
@@ -162,16 +209,34 @@ section Security.
       c       <- (u, v);
       b       <@ A.guess(pk, c);
       return b;
+>>>>>>> 84d27b4165907b30578066813e798cbdf9d298ef
     }
   }.
 **)
 
 
+<<<<<<< HEAD
+(**  Lemma  1  **)
+ local lemma lem_G1_G2(A<:Adversary) &m:
+     Pr[G1(A).main() @ &m : res] = Pr[G2(A).main() @ &m : res].
+
+proof.
+  byequiv=> //. proc.
+  call (_:true).
+  call (_:true).
+  auto.
+  progress.
+  by auto => /#.
+
+qed.
+
+=======
 (**Lemma 4**)
 local lemma ddh1_gb &m:
 
 proof.
    byequiv=> //; proc; inline *.
+>>>>>>> 84d27b4165907b30578066813e798cbdf9d298ef
   swap{1} 3 2; swap{1} [5..6] 2; swap{2} 6 -2.
   auto; call (_:true); wp.
  rnd (fun z, z + loge (if b then m1 else m0){2})
