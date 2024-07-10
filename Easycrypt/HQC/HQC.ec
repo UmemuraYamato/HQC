@@ -42,6 +42,8 @@ op duni = dvector duni_R.
 op dshort = dvector dshort_R.
 
 op H:vector -> matrix.
+
+const g : matrix.
 (*op ( * ) (v1 : vector) (v2 : vector) : vector =
   offunv (fun i => bigi predT (fun i => v1.[i] * v2.[i]) 0 size).*)
 
@@ -57,6 +59,7 @@ clone import PKE_CPA as PKE with
   type skey <- skey,
   type ptxt <- ptxt,
   type ctxt <- ctxt.
+
 
 (** Concrete Construction: HQC_PKE **)
 module HQC_PKE : Scheme = {
@@ -76,7 +79,6 @@ module HQC_PKE : Scheme = {
 
   proc enc(pk:pkey, m:ptxt):ctxt = {
       var e,r1,r2,u,v,h,s,h',s',c;
-      var g : matrix;
 
     (h, s) <- pk;
     e  <$ duni;
@@ -169,76 +171,6 @@ section Security.
     }
   }.
 
-  axiom addvA (v1 v2 v3 : vector):
-    (v1 + v2) + v3 = v1 + (v2 + v3).
-
-  axiom addvC (v1 v2 : vector):
-    v1 + v2 = v2 + v1.
-
-  axiom add0v (v : vector):
-    zerov + v = v.
-
-  axiom addNv (v : vector):
-    v + -v = zerov.
-  
-  (** Ring multiplication *)
-  const one: vector.
-  op ( * ): vector -> vector -> vector.
-
-  axiom mulvA (v1 v2 v3 : vector):
-    (v1 * v2) * v3 = v1 * (v2 * v3).
-
-  axiom mul1v (v : vector):
-    one * v = v.
-
-  (* lemmas *)
-
-  lemma addv0 (v : vector):
-    v + zerov = v.
-  proof strict.
-  by rewrite addvC add0v.
-  qed.
-
-  lemma addvN (v : vector):
-    -v + v = zerov.
-  proof strict.
-  by rewrite addvC addNv.
-  qed.
-
-  
-  lemma addIv (v v1 v2 : vector):
-    (v1 + v = v2 + v) =>
-    v1 = v2.
-  proof strict.
-   move=> v1_v2.
-   by rewrite -addv0 -(addv0 v2) -(addNv v) -2!addvA -v1_v2.
-  qed.
-
-  axiom mul1m (m : matrix):
-    m * onem = m.
-
-  lemma trmx1m (m : matrix):
-    m * (trmx m) = onem.
-    proof.
-    rewrite -mul1m.
-    
-  lemma mulvM (v : vector) (m1 m2 : matrix):
-      (v ^* m1 = v ^* m2) =>
-      m1 = m2.
-    proof strict.
-      move => m1_m2.
-   rewrite -mul1m -(mul1m m2).    
-   
-lemma addMv (v1 v2 v3 : vector) (m1 m2 m3 : matrix):
-    (v1 ^* m1 + m3 *^ v2 + v3 = v1 ^* m2 + m3 *^ v2 + v3) =>
-    m1 = m2.
-  proof strict.
-  move => m1_m2.
-    rewrite -mul1m -(mul1m m2).
-
-  
-m{2} ^* g{1} + (H pk{2}.`2)%top *^ r2L + eL =
-m{2} ^* g{2} + (H pk{2}.`2)%top *^ r2L + eL
 (**  Lemma  1  **)
  local lemma lem_G1_G2(A<:Adversary) &m:
      Pr[G1(A).main() @ &m : res] = Pr[G2(A).main() @ &m : res].
@@ -249,4 +181,11 @@ byequiv=> //. proc.
   call (_:true).
   auto.
   progress.
-  rewrite -addIv.
+  call (_:true).
+  auto.
+  call (_:true).
+  auto.
+  skip.
+  progress.
+
+ qed.
