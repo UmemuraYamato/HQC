@@ -190,5 +190,6 @@ byequiv=> //. proc.
   skip.
   progress.
   - by rewrite dvector_ll duniR_ll.
-  - by .   
+  - by .
 qed.
+
