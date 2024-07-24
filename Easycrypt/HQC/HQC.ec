@@ -24,8 +24,8 @@ require (*--*) BitWord Distr DInterval.
 (*---*) import RealOrder RField StdBigop.Bigint BIA.
 require (*--*) ROM  Matrix Ring Group ZModP PKE_CPA RingCloning.
 
-clone RingCloning as RC.
-import RC RC.Ring RC.RingT RC.CRing RC.CRingT RC.BRing RC.BRingT.
+clone ZModP as Zm.
+import Zm.
 
 clone Matrix as Mt.
 import Mt Mt.Vector Mt.Matrix.
@@ -36,7 +36,26 @@ type matrix = Mt.Matrix.matrix.
 
 op dvector = Mt.Matrix.dvector.
 
-op [lossless uniform full] duni_R : R distr.
+  (** Construction : a distribution F **)
+abstract theory ZModRing.
+(* -------------------------------------------------------------------- *)
+(* This abstract theory provides the construction of the ring Z/pZ.     *)
+(* -------------------------------------------------------------------- *)
+const p : { int | 2 <= p } as ge2_p.
+
+(* -------------------------------------------------------------------- *)
+
+clone Subtype as Sub with
+  type T <- int,
+  op P (x : int) <- 0 <= x < p
+proof *.
+realize inhabited.
+exists 0. smt(ge2_p).
+qed.
+
+type zmod = Sub.sT.
+
+op [lossless uniform full] duni_F : zmod.
 op [lossless] dshort_R : R distr.
 op duni = dvector duni_R.
 op dshort = dvector dshort_R.
