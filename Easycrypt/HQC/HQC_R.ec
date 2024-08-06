@@ -48,7 +48,13 @@ const g : matrix.
 pred is_lossless_R (duni_R : R distr) = weight duni_R = 1%r.
 
 lemma duniR_ll: is_lossless duni_R.
-  proof. smt. qed.
+    proof. smt. qed.
+
+lemma duni_ll: is_lossless duni.
+    proof. smt. qed.
+
+lemma dshort_ll: is_lossless dshort.
+    proof. smt. qed.
 
 (** Construction: a PKE **)
 type pkey = vector * vector.
@@ -70,7 +76,7 @@ module HQC_PKE : Scheme = {
 
     x  <$ dshort;              (* ZModP p=2 -> F_2 *)
     y  <$ dshort;
-    h  <$ dshort;
+    h  <$ duni;
     h' <- (H h);               (* h -> H making for QC *)
     s <- x + h' *^ y;
     pk <- (h, s);
@@ -83,9 +89,9 @@ module HQC_PKE : Scheme = {
       var e,r1,r2,u,v,h,s,h',s',c;
 
     (h, s) <- pk;
-    e  <$ duni;
-    r1 <$ duni;
-    r2 <$ duni;
+    e  <$ dshort;
+    r1 <$ dshort;
+    r2 <$ dshort;
     h' <- (H h);
     s' <- (H s);
 
@@ -108,27 +114,89 @@ module HQC_PKE : Scheme = {
   }
 }.
 
+
+(** Security Problem **)
 module type Adversary = {
   proc choose(pk:pkey) : ptxt * ptxt
   proc guess(pk:pkey, c:ctxt) : bool
 }.
 
-(** Reduction: from a PKE adversary, construct a Syndrome adversary **)
-module DQCSD_Adv (A:Adversary) = {
-  proc guess (pk:pkey, c:ctxt) : bool = {
-    var m0, m1, b, b';
+module type Adv_T = {
+  proc guess(h:vector, s:vector,  c:ctxt) : bool
+}.
 
+(**
+module II_DQCSD_P(Adv : Adv_T) = {
+
+  proc main(b : bool) : bool = {
+    var r1, r2, k, k', u0, u1, p, p', e, v0, v1, b';
+
+    r1 <$ dshort;
+    r2 <$ dshort;
+    h  <$ dshort;
+    h' <- (H h);
+    u0 <- r1 + h' *^ r2;
+    u1 <$ duni;
+
+    p <$ dshort;
+    p' <- (H p);
+    e <$ duni;
+    v0 <- p' *^ r2 + e;
+    v1 <$ duni;
+
+    b' <@ Adv.guess(h, s, if b then (u1,v1) else (u0,v0));
+    return b';
+   }
+
+ }.
+    **)
+
+module II_DQCSD_P(Adv : Adv_T) = {
+
+  proc main(b : bool) : bool = {
+    var r1, r2, h, h', u0, u1, s, s', e', v0, v1, b';
+
+    r1 <$ dshort;
+    r2 <$ dshort;
+    h  <$ duni;
+    h' <- (H h);
+    u0 <- h' *^ r2 + r1;
+    u1 <$ duni;
+
+    s <$ duni;
+    s' <- (H s);
+    e' <$ dshort;
+    v0 <- s' *^ r2 + e';
+    v1 <$ duni;
+
+    b' <@ Adv.guess(h, s, if b then (u1,v1) else (u0,v0));
+    return b';
+   }
+
+}.
+
+module B1(A : Adversary) : Adv_T = {
+
+  proc kg(h: vector, s: vector) : pkey * skey = {
+       return ((h, s), witness);
+  }
+
+  proc guess(h: vector, s: vector, c:ctxt) : bool = {
+      var pk, sk, m0, m1, b, b';
+
+    (pk,sk)  <@ kg(h, s);
     (m0, m1) <@ A.choose(pk);
     b        <$ {0,1};
+    c        <@ HQC_PKE.enc(pk, m0);
     b'       <@ A.guess(pk, c);
+
     return b' = b;
   }
 }.
 
-(** We now prove that, for all adversary A, we have:
-      `| Pr[CPA(ElGamal,A).main() @ &m : res] - 1%r/2%r |
-      = `| Pr[DDH0(DDHAdv(A)).main() @ &m : res]
-    - Pr[DDH1(DDHAdv(A)).main() @ &m : res] |.        **)
+
+(** Reduction: from a PKE adversary, construct a Syndrome adversary **)
+
 section Security.
   declare module A <: Adversary.
   declare axiom Ac_ll: islossless A.choose.
@@ -173,6 +241,47 @@ section Security.
     }
   }.
 
+(** Lemma 1 **)
+lemma hop1_left &m:
+  Pr[G1(A).main() @ &m : res] = Pr[II_DQCSD_P(B1(A)).main(false) @ &m : res].
+proof.
+byequiv=> //.
+  proc. inline. wp.
+  call(_:true); wp; do 3! rnd; wp => /=; rnd{2}.
+  call(_:true). wp => /=; rnd{2}; wp; rnd{2}; wp; do 2! rnd{2}; wp.
+  do 3! rnd.
+  skip. progress.
+  by rewrite duni_ll.
+  by rewrite dshort_ll.
+  by smt.
+
+  call (_:true).
+  call (_:true).
+  - by auto.
+  progress.
+  call (_:true).
+  auto.
+  call (_:true).
+  - by auto.
+  skip.
+  progress.
+  - by rewrite dvector_ll duniR_ll.
+  - by .
+qed.
+
+lemma hop1_right &m:
+  Pr[MLWE(B1(A)).main(true) @ &m : res] =
+  Pr[CPA(MLWE_PKE_BASIC1,A).main() @ &m : res].
+proof.
+byequiv => //.
+proc;inline *.
+wp; call(:true); auto => /=.
+call(:true); wp => /=.
+rnd{1}; wp; do 2! rnd{1}.
+by rnd; wp; rnd{1}; auto; smt(duni_ll dshort_ll).
+qed.
+
+end section.
 (**  Lemma  1  **)
  local lemma lem_G1_G2(A<:Adversary) &m:
      Pr[G1(A).main() @ &m : res] = Pr[G2(A).main() @ &m : res].
