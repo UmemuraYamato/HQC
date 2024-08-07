@@ -122,75 +122,48 @@ module type Adversary = {
 }.
 
 module type Adv_T = {
-  proc guess(h:vector, s:vector,  c:ctxt) : bool
+  proc choose(pk:pkey) : ptxt * ptxt
+  proc guess1(h:vector, s:vector) : pkey
+  proc guess2(pk:pkey,  c:ctxt) : bool
 }.
 
-(**
 module II_DQCSD_P(Adv : Adv_T) = {
 
   proc main(b : bool) : bool = {
-    var r1, r2, k, k', u0, u1, p, p', e, v0, v1, b';
+    var pk, sk, h, s0, s1, m0, m1, c, b';
 
-    r1 <$ dshort;
-    r2 <$ dshort;
-    h  <$ dshort;
-    h' <- (H h);
-    u0 <- r1 + h' *^ r2;
-    u1 <$ duni;
+      (pk, sk) <@ HQC_PKE.kg();
+      (h, s0)  <- pk;
+      s1       <$ duni;
+      pk       <@ Adv.guess1(if b then (h, s1) else (h, s0));
 
-    p <$ dshort;
-    p' <- (H p);
-    e <$ duni;
-    v0 <- p' *^ r2 + e;
-    v1 <$ duni;
+      (m0, m1) <@ Adv.choose(pk);
+      c        <@ HQC_PKE.enc(pk, m0);
 
-    b' <@ Adv.guess(h, s, if b then (u1,v1) else (u0,v0));
-    return b';
-   }
+      b'       <@ Adv.guess2(pk, c);
 
- }.
-    **)
-
-module II_DQCSD_P(Adv : Adv_T) = {
-
-  proc main(b : bool) : bool = {
-    var r1, r2, h, h', u0, u1, s, s', e', v0, v1, b';
-
-    r1 <$ dshort;
-    r2 <$ dshort;
-    h  <$ duni;
-    h' <- (H h);
-    u0 <- h' *^ r2 + r1;
-    u1 <$ duni;
-
-    s <$ duni;
-    s' <- (H s);
-    e' <$ dshort;
-    v0 <- s' *^ r2 + e';
-    v1 <$ duni;
-
-    b' <@ Adv.guess(h, s, if b then (u1,v1) else (u0,v0));
     return b';
    }
 
 }.
 
 module B1(A : Adversary) : Adv_T = {
-
-  proc kg(h: vector, s: vector) : pkey * skey = {
-       return ((h, s), witness);
+  proc choose(pk:pkey): ptxt * ptxt = {
+  var m0, m1;
+    (m0, m1) <@ A.choose(pk);
+     return (m0, m1);
   }
 
-  proc guess(h: vector, s: vector, c:ctxt) : bool = {
-      var pk, sk, m0, m1, b, b';
+  proc guess1(h:vector, s:vector): pkey = {
+     return (h, s);
+  }
 
-    (pk,sk)  <@ kg(h, s);
-    (m0, m1) <@ A.choose(pk);
-    b        <$ {0,1};
-    c        <@ HQC_PKE.enc(pk, m0);
+  proc guess2(pk:pkey, c:ctxt) : bool = {
+      var b';
+
     b'       <@ A.guess(pk, c);
 
-    return b' = b;
+     return b';
   }
 }.
 
@@ -202,7 +175,7 @@ section Security.
   declare axiom Ac_ll: islossless A.choose.
   declare axiom Ag_ll: islossless A.guess.
 
-  local module G1(A:Adversary) = {
+  module G1(A:Adversary) = {
     proc main () : bool = {
     var pk: pkey;
     var sk: skey;
@@ -220,7 +193,7 @@ section Security.
   }.
 
 
-  local module G2(A:Adversary) = {
+  module G2(A:Adversary) = {
     proc main () : bool = {
      var pk: pkey;
      var sk: skey;
@@ -242,63 +215,35 @@ section Security.
   }.
 
 (** Lemma 1 **)
+
 lemma hop1_left &m:
   Pr[G1(A).main() @ &m : res] = Pr[II_DQCSD_P(B1(A)).main(false) @ &m : res].
 proof.
 byequiv=> //.
-  proc. inline. wp.
-  call(_:true); wp; do 3! rnd; wp => /=; rnd{2}.
-  call(_:true). wp => /=; rnd{2}; wp; rnd{2}; wp; do 2! rnd{2}; wp.
+  proc. inline*. wp.
+  call(_:true). wp => /=. do 3! rnd; wp => /=.
+  call(_:true). wp => /=. rnd{2}. wp => /=.
   do 3! rnd.
   skip. progress.
   by rewrite duni_ll.
-  by rewrite dshort_ll.
-  by smt.
-
-  call (_:true).
-  call (_:true).
-  - by auto.
-  progress.
-  call (_:true).
-  auto.
-  call (_:true).
-  - by auto.
-  skip.
-  progress.
-  - by rewrite dvector_ll duniR_ll.
-  - by .
 qed.
 
 lemma hop1_right &m:
-  Pr[MLWE(B1(A)).main(true) @ &m : res] =
-  Pr[CPA(MLWE_PKE_BASIC1,A).main() @ &m : res].
+  Pr[II_DQCSD_P(B1(A)).main(true) @ &m : res] = Pr[G2(A).main() @ &m : res].
 proof.
 byequiv => //.
 proc;inline *.
-wp; call(:true); auto => /=.
+wp; call(:true). wp => /=. do 3! rnd. wp => /=.
 call(:true); wp => /=.
-rnd{1}; wp; do 2! rnd{1}.
-by rnd; wp; rnd{1}; auto; smt(duni_ll dshort_ll).
+rnd. wp. do 3! rnd.
+skip; progress.
 qed.
 
-end section.
-(**  Lemma  1  **)
- local lemma lem_G1_G2(A<:Adversary) &m:
-     Pr[G1(A).main() @ &m : res] = Pr[G2(A).main() @ &m : res].
+lemma G1_G2 &m :
+    `| Pr[G1(A).main() @ &m : res] - Pr[G2(A).main() @ &m : res] | =
+    `| Pr[II_DQCSD_P(B1(A)).main(false) @ &m : res] - Pr[II_DQCSD_P(B1(A)).main(true) @ &m : res] |.
+  proof.
+  by rewrite (hop1_left &m) (hop1_right &m).
+  qed.
 
-proof.
-byequiv=> //. proc.
-  call (_:true).
-  call (_:true).
-  - by auto.
-  progress.
-  call (_:true).
-  auto.
-  call (_:true).
-  - by auto.
-  skip.
-  progress.
-  - by rewrite dvector_ll duniR_ll.
-  - by .
-qed.
-
+end section Security.
